@@ -39,8 +39,8 @@ function App() {
           </button>
         ))}
       </div>
-      <Univariate cols={cols} />
-      {/* <Bivariate cols={cols} /> */}
+      {/* <Univariate cols={cols} /> */}
+      <Bivariate cols={cols} />
       {/* <Multivariate cols={cols} /> */}
     </>
   );
