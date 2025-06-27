@@ -46,8 +46,10 @@ function Univariate({ cols }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800 p-4 md:p-8 font-sans">
-      <div className="max-w-6xl mx-auto">
+    // <div className="h-full bg-gray-100 text-gray-800 p-4 md:p-8 font-sans">
+    //   <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gray-100 text-gray-800 p-0 md:p-0 font-sans">
+      <div className="max-w-screen mx-auto">
         <div className="mb-6 bg-white p-6 rounded-lg shadow-md border border-gray-200">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800 flex items-center">

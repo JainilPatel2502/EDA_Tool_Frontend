@@ -382,6 +382,120 @@ export const getParallelCoordinates = async (cols, category) => {
   }
 };
 
+// export const getRadarChart = async (categoryCol, valueCols) => {
+//   if (!categoryCol || !valueCols || valueCols.length < 1) {
+//     return { data: [], layout: { title: "Radar Chart" } };
+//   }
+
+//   try {
+//     let queryParams = `category_col=${encodeURIComponent(categoryCol)}`;
+//     queryParams +=
+//       "&" +
+//       valueCols.map((col) => `value_cols=${encodeURIComponent(col)}`).join("&");
+
+//     const endpoint = `${api}/radar_chart?${queryParams}`;
+//     const raw = await fetchWithCache(endpoint);
+
+//     // Generate nice colors for each category
+//     const colors = generateColorScale(raw.length);
+
+//     // Create dataset with enhanced visualization
+//     const data = raw.map((row, idx) => ({
+//       type: "scatterpolar",
+//       r: Object.values(row.values),
+//       theta: Object.keys(row.values),
+//       name: row.category,
+//       fill: "toself",
+//       fillcolor: colors[idx % colors.length]
+//         .replace(")", ", 0.3)")
+//         .replace("rgb", "rgba"),
+//       line: {
+//         color: colors[idx % colors.length],
+//         width: 2,
+//       },
+//       hovertemplate:
+//         Object.entries(row.values)
+//           .map(
+//             ([key, val]) =>
+//               `<b>${key}</b>: ${typeof val === "number" ? val.toFixed(2) : val}`
+//           )
+//           .join("<br>") +
+//         "<br><b>Category: </b>%{fullData.name}<extra></extra>",
+//     }));
+
+//     // Calculate the maximum value across all dimensions for consistent scaling
+//     const maxValue = Math.max(
+//       ...raw.flatMap((row) =>
+//         Object.values(row.values).map((val) =>
+//           typeof val === "number" ? val : 0
+//         )
+//       )
+//     );
+
+//     // Create a refined layout
+//     const layout = {
+//       polar: {
+//         radialaxis: {
+//           visible: true,
+//           range: [0, maxValue * 1.1], // Add 10% padding
+//           tickfont: { size: 10 },
+//           tickangle: 45,
+//           gridcolor: "rgba(0,0,0,0.1)",
+//           ticksuffix: "",
+//         },
+//         angularaxis: {
+//           tickfont: { size: 12 },
+//           linecolor: "rgba(0,0,0,0.3)",
+//           gridcolor: "rgba(0,0,0,0.1)",
+//         },
+//         bgcolor: "rgba(240,240,240,0.1)",
+//       },
+//       title: {
+//         text: `Radar Chart by ${categoryCol}`,
+//         font: { size: 18 },
+//       },
+//       legend: {
+//         x: 1,
+//         y: 1,
+//         bgcolor: "rgba(255,255,255,0.6)",
+//         bordercolor: "rgba(0,0,0,0.2)",
+//         borderwidth: 1,
+//         title: { text: categoryCol, font: { size: 14 } },
+//       },
+//       margin: { l: 80, r: 80, t: 100, b: 80 },
+//       showlegend: true,
+//       annotations: [
+//         {
+//           x: 0.5,
+//           y: -0.15,
+//           xref: "paper",
+//           yref: "paper",
+//           text: `Variables: ${valueCols.join(", ")}`,
+//           showarrow: false,
+//           font: { size: 12 },
+//         },
+//       ],
+//     };
+
+//     return {
+//       data,
+//       layout,
+//       config: {
+//         responsive: true,
+//         displaylogo: false,
+//         toImageButtonOptions: {
+//           format: "png",
+//           filename: "radar_chart",
+//           scale: 2,
+//         },
+//       },
+//     };
+//   } catch (error) {
+//     console.error("Error fetching radar chart data:", error);
+//     return { data: [], layout: { title: "Radar Chart - Error" } };
+//   }
+// };
+
 export const getRadarChart = async (categoryCol, valueCols) => {
   if (!categoryCol || !valueCols || valueCols.length < 1) {
     return { data: [], layout: { title: "Radar Chart" } };
@@ -396,85 +510,223 @@ export const getRadarChart = async (categoryCol, valueCols) => {
     const endpoint = `${api}/radar_chart?${queryParams}`;
     const raw = await fetchWithCache(endpoint);
 
-    // Generate nice colors for each category
-    const colors = generateColorScale(raw.length);
+    // Check if we have valid data
+    if (!raw || raw.length === 0) {
+      return {
+        data: [],
+        layout: {
+          title: "Radar Chart - No Data Available",
+          annotations: [
+            {
+              text: "No data available for the selected columns",
+              showarrow: false,
+              x: 0.5,
+              y: 0.5,
+              xref: "paper",
+              yref: "paper",
+              font: { size: 16, color: "#666" },
+            },
+          ],
+        },
+      };
+    }
+
+    // Handle normalization option (normalize values to 0-1 scale)
+    // This helps when variables have very different scales
+    const shouldNormalize = valueCols.length > 1;
+
+    // Calculate min and max values for each dimension for normalization
+    const dimensionStats = {};
+    if (shouldNormalize) {
+      valueCols.forEach((col) => {
+        const values = raw.flatMap((row) => {
+          const val = row.values[col];
+          return typeof val === "number" && !isNaN(val) ? [val] : [];
+        });
+
+        dimensionStats[col] = {
+          min: Math.min(...values),
+          max: Math.max(...values),
+          range: Math.max(...values) - Math.min(...values),
+        };
+      });
+    }
+
+    // Function to normalize value (if needed)
+    const normalizeValue = (value, dimension) => {
+      if (
+        !shouldNormalize ||
+        typeof value !== "number" ||
+        isNaN(value) ||
+        dimensionStats[dimension].range === 0
+      ) {
+        return value;
+      }
+      return (
+        (value - dimensionStats[dimension].min) /
+        dimensionStats[dimension].range
+      );
+    };
+
+    // Generate distinct colors with better contrast
+    const colors = generateColorScale(raw.length, {
+      saturation: 0.8, // Higher saturation for vivid colors
+      brightness: 0.9, // Slightly brighter colors
+      alpha: 0.7, // More opaque
+    });
 
     // Create dataset with enhanced visualization
-    const data = raw.map((row, idx) => ({
-      type: "scatterpolar",
-      r: Object.values(row.values),
-      theta: Object.keys(row.values),
-      name: row.category,
-      fill: "toself",
-      fillcolor: colors[idx % colors.length]
-        .replace(")", ", 0.3)")
-        .replace("rgb", "rgba"),
-      line: {
-        color: colors[idx % colors.length],
-        width: 2,
-      },
-      hovertemplate:
-        Object.entries(row.values)
-          .map(
-            ([key, val]) =>
-              `<b>${key}</b>: ${typeof val === "number" ? val.toFixed(2) : val}`
+    const data = raw.map((row, idx) => {
+      // Handle missing or NaN values
+      const processedValues = {};
+      const originalValues = {};
+
+      Object.entries(row.values).forEach(([key, val]) => {
+        if (
+          val === null ||
+          val === undefined ||
+          (typeof val === "number" && isNaN(val))
+        ) {
+          // Use a fallback value or skip
+          processedValues[key] = 0;
+          originalValues[key] = "N/A";
+        } else {
+          processedValues[key] = shouldNormalize
+            ? normalizeValue(val, key)
+            : val;
+          originalValues[key] = val;
+        }
+      });
+
+      // Create better hover template with both normalized and original values if applicable
+      const hoverEntries = Object.entries(row.values).map(([key, val]) => {
+        const displayVal = typeof val === "number" ? val.toFixed(2) : val;
+        const normalizedVal = processedValues[key];
+
+        if (shouldNormalize && typeof normalizedVal === "number") {
+          return `<b>${key}</b>: ${displayVal} <i>(normalized: ${normalizedVal.toFixed(
+            2
+          )})</i>`;
+        }
+        return `<b>${key}</b>: ${displayVal}`;
+      });
+
+      const color = colors[idx % colors.length];
+      const baseColor = color.replace(/[^0-9,]+/g, "").split(",");
+
+      // Create a gradient effect for the fill
+      const gradientColor = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, 0.4)`;
+
+      return {
+        type: "scatterpolar",
+        r: Object.values(processedValues),
+        theta: Object.keys(processedValues),
+        name: row.category,
+        fill: "toself",
+        fillcolor: gradientColor,
+        line: {
+          color: color,
+          width: 2.5, // Thicker line for better visibility
+          shape: "spline", // Smoother lines
+        },
+        hovertemplate:
+          hoverEntries.join("<br>") +
+          "<br><b>Category: </b>%{fullData.name}<extra></extra>",
+        // Store original values for reference
+        customdata: Object.values(originalValues),
+        hoverlabel: {
+          bgcolor: "white",
+          bordercolor: color,
+          font: { family: "Arial", size: 12 },
+        },
+        // Add marker points for clarity
+        mode: "lines+markers",
+        marker: {
+          size: 5,
+          color: color,
+          symbol: "circle",
+        },
+      };
+    });
+
+    // Calculate the appropriate range for the chart
+    const maxValue = shouldNormalize
+      ? 1
+      : Math.max(
+          ...raw.flatMap((row) =>
+            Object.values(row.values).map((val) =>
+              typeof val === "number" && !isNaN(val) ? val : 0
+            )
           )
-          .join("<br>") +
-        "<br><b>Category: </b>%{fullData.name}<extra></extra>",
-    }));
+        );
 
-    // Calculate the maximum value across all dimensions for consistent scaling
-    const maxValue = Math.max(
-      ...raw.flatMap((row) =>
-        Object.values(row.values).map((val) =>
-          typeof val === "number" ? val : 0
-        )
-      )
-    );
-
-    // Create a refined layout
+    // Create a refined layout with better grid and labels
     const layout = {
       polar: {
         radialaxis: {
           visible: true,
-          range: [0, maxValue * 1.1], // Add 10% padding
-          tickfont: { size: 10 },
+          range: [0, maxValue * 1.05], // Slight padding
+          tickfont: { size: 10, color: "#444" },
           tickangle: 45,
           gridcolor: "rgba(0,0,0,0.1)",
-          ticksuffix: "",
+          linecolor: "rgba(0,0,0,0.15)",
+          nticks: 5, // Optimized number of ticks
+          ticksuffix: shouldNormalize ? "" : " ",
+          tickformat: shouldNormalize ? ".1f" : "",
+          tickmode: "auto",
+          layer: "below traces",
         },
         angularaxis: {
-          tickfont: { size: 12 },
-          linecolor: "rgba(0,0,0,0.3)",
-          gridcolor: "rgba(0,0,0,0.1)",
+          tickfont: { size: 12, color: "#333", weight: 600 },
+          linecolor: "rgba(0,0,0,0.2)",
+          gridcolor: "rgba(0,0,0,0.05)",
+          linewidth: 2,
+          layer: "below traces",
+          rotation: 90, // Orient the first category at the top
+          direction: "clockwise",
         },
-        bgcolor: "rgba(240,240,240,0.1)",
+        bgcolor: "rgba(240,240,250,0.2)",
+        hole: 0.05, // Small hole in the center for aesthetics
       },
       title: {
-        text: `Radar Chart by ${categoryCol}`,
-        font: { size: 18 },
+        text: `Radar Comparison by ${categoryCol}`,
+        font: { size: 20, color: "#333", family: "Arial, sans-serif" },
+        x: 0.5,
+        y: 0.95,
       },
       legend: {
-        x: 1,
+        x: 1.05,
         y: 1,
-        bgcolor: "rgba(255,255,255,0.6)",
-        bordercolor: "rgba(0,0,0,0.2)",
+        bgcolor: "rgba(255,255,255,0.8)",
+        bordercolor: "rgba(0,0,0,0.1)",
         borderwidth: 1,
-        title: { text: categoryCol, font: { size: 14 } },
+        title: {
+          text: categoryCol,
+          font: { size: 14, color: "#444" },
+        },
+        font: { size: 12 },
+        orientation: "v",
+        yanchor: "top",
+        xanchor: "left",
       },
-      margin: { l: 80, r: 80, t: 100, b: 80 },
+      margin: { l: 80, r: 100, t: 100, b: 80 },
       showlegend: true,
+      paper_bgcolor: "rgba(255,255,255,0)",
+      plot_bgcolor: "rgba(255,255,255,0)",
       annotations: [
         {
           x: 0.5,
-          y: -0.15,
+          y: -0.12,
           xref: "paper",
           yref: "paper",
-          text: `Variables: ${valueCols.join(", ")}`,
+          text: shouldNormalize
+            ? `Variables: ${valueCols.join(", ")} (normalized to 0-1 scale)`
+            : `Variables: ${valueCols.join(", ")}`,
           showarrow: false,
-          font: { size: 12 },
+          font: { size: 12, color: "#666" },
         },
       ],
+      dragmode: false, // Disable pan/zoom for cleaner interaction
     };
 
     return {
@@ -488,11 +740,43 @@ export const getRadarChart = async (categoryCol, valueCols) => {
           filename: "radar_chart",
           scale: 2,
         },
+        modeBarButtonsToAdd: ["resetScale", "hoverClosest"],
+        modeBarButtonsToRemove: ["zoom2d", "pan2d", "select2d", "lasso2d"],
+      },
+      // Add this function to enable toggling categories by clicking legend
+      onLegendClick: (event) => {
+        const traces = document.querySelectorAll(
+          '[class^="scatterlayer"] .trace'
+        );
+        const name = event.target.textContent;
+        const traceIndex = data.findIndex((d) => d.name === name);
+
+        if (traceIndex >= 0 && traces[traceIndex]) {
+          traces[traceIndex].style.opacity =
+            traces[traceIndex].style.opacity === "0.3" ? "1" : "0.3";
+        }
+        return false; // Prevent default behavior
       },
     };
   } catch (error) {
     console.error("Error fetching radar chart data:", error);
-    return { data: [], layout: { title: "Radar Chart - Error" } };
+    return {
+      data: [],
+      layout: {
+        title: "Radar Chart - Error",
+        annotations: [
+          {
+            text: "Failed to load chart data. Please try again.",
+            showarrow: false,
+            x: 0.5,
+            y: 0.5,
+            xref: "paper",
+            yref: "paper",
+            font: { size: 16, color: "#d32f2f" },
+          },
+        ],
+      },
+    };
   }
 };
 
@@ -1287,6 +1571,159 @@ export const getScatter3D = async (x, y, z) => {
   }
 };
 
+// export const getContourPlot = async (x, y, z) => {
+//   if (!x || !y || !z) return null;
+
+//   try {
+//     const queryParams = `x_col=${encodeURIComponent(
+//       x
+//     )}&y_col=${encodeURIComponent(y)}&z_col=${encodeURIComponent(z)}`;
+//     const endpoint = `${api}/contour?${queryParams}`;
+//     const raw = await fetchWithCache(endpoint);
+
+//     // Extract unique x and y values for proper gridding
+//     const uniqueXValues = [...new Set(raw.map((r) => r[x]))].sort(
+//       (a, b) => a - b
+//     );
+//     const uniqueYValues = [...new Set(raw.map((r) => r[y]))].sort(
+//       (a, b) => a - b
+//     );
+
+//     // Create a 2D grid of z values
+//     const zGrid = Array(uniqueYValues.length)
+//       .fill()
+//       .map(() => Array(uniqueXValues.length).fill(null));
+
+//     raw.forEach((point) => {
+//       const xIndex = uniqueXValues.indexOf(point[x]);
+//       const yIndex = uniqueYValues.indexOf(point[y]);
+//       if (xIndex !== -1 && yIndex !== -1) {
+//         zGrid[yIndex][xIndex] = point[z];
+//       }
+//     });
+
+//     return {
+//       data: [
+//         {
+//           type: "contour",
+//           x: uniqueXValues,
+//           y: uniqueYValues,
+//           z: zGrid,
+//           contours: {
+//             coloring: "heatmap",
+//             showlabels: true,
+//             labelfont: {
+//               family: "Arial",
+//               size: 10,
+//               color: "white",
+//             },
+//           },
+//           colorscale: "Viridis",
+//           colorbar: {
+//             title: {
+//               text: z,
+//               side: "right",
+//             },
+//             thickness: 15,
+//             len: 0.9,
+//             y: 0.5,
+//           },
+//           hovertemplate: `
+//             <b>${x}</b>: %{x:.4f}<br>
+//             <b>${y}</b>: %{y:.4f}<br>
+//             <b>${z}</b>: %{z:.4f}
+//             <extra></extra>
+//           `,
+//           hoverlabel: {
+//             bgcolor: "white",
+//             bordercolor: "#888",
+//             font: { family: "Arial", size: 12 },
+//           },
+//         },
+//         {
+//           type: "scatter",
+//           mode: "markers",
+//           x: raw.map((r) => r[x]),
+//           y: raw.map((r) => r[y]),
+//           marker: {
+//             color: "rgba(255,255,255,0.5)",
+//             size: 3,
+//             line: {
+//               color: "rgba(0,0,0,0.2)",
+//               width: 0.5,
+//             },
+//           },
+//           name: "Data points",
+//           hovertemplate: `
+//             <b>${x}</b>: %{x:.4f}<br>
+//             <b>${y}</b>: %{y:.4f}<br>
+//             <b>${z}</b>: %{customdata:.4f}
+//             <extra></extra>
+//           `,
+//           customdata: raw.map((r) => r[z]),
+//         },
+//       ],
+//       layout: {
+//         title: {
+//           text: `Contour Plot: ${z} as a function of ${x} and ${y}`,
+//           font: { size: 18 },
+//         },
+//         xaxis: {
+//           title: x,
+//           showgrid: true,
+//           zeroline: false,
+//           gridcolor: "rgba(0,0,0,0.1)",
+//         },
+//         yaxis: {
+//           title: y,
+//           showgrid: true,
+//           zeroline: false,
+//           gridcolor: "rgba(0,0,0,0.1)",
+//         },
+//         showlegend: true,
+//         legend: {
+//           x: 0.01,
+//           y: 0.99,
+//           bgcolor: "rgba(255,255,255,0.7)",
+//           bordercolor: "rgba(0,0,0,0.2)",
+//           borderwidth: 1,
+//         },
+//         annotations: [
+//           {
+//             x: 0.5,
+//             y: -0.15,
+//             xref: "paper",
+//             yref: "paper",
+//             text: `${z} values are represented by colors, with contour lines showing equal ${z} values`,
+//             showarrow: false,
+//             font: { size: 12 },
+//           },
+//         ],
+//       },
+//       config: {
+//         responsive: true,
+//         displaylogo: false,
+//         scrollZoom: true,
+//         toImageButtonOptions: {
+//           format: "png",
+//           filename: "contour_plot",
+//           scale: 2,
+//         },
+//         modeBarButtonsToAdd: [
+//           "drawline",
+//           "drawopenpath",
+//           "drawclosedpath",
+//           "drawcircle",
+//           "drawrect",
+//           "eraseshape",
+//         ],
+//       },
+//     };
+//   } catch (error) {
+//     console.error("Error fetching contour plot data:", error);
+//     return null;
+//   }
+// };
 export const getContourPlot = async (x, y, z) => {
   if (!x || !y || !z) return null;
 
@@ -1297,6 +1734,12 @@ export const getContourPlot = async (x, y, z) => {
     const endpoint = `${api}/contour?${queryParams}`;
     const raw = await fetchWithCache(endpoint);
 
+    // Check if we have enough data points
+    if (raw.length < 10) {
+      console.warn("Not enough data points for a meaningful contour plot");
+      return null;
+    }
+
     // Extract unique x and y values for proper gridding
     const uniqueXValues = [...new Set(raw.map((r) => r[x]))].sort(
       (a, b) => a - b
@@ -1305,18 +1748,98 @@ export const getContourPlot = async (x, y, z) => {
       (a, b) => a - b
     );
 
-    // Create a 2D grid of z values
-    const zGrid = Array(uniqueYValues.length)
-      .fill()
-      .map(() => Array(uniqueXValues.length).fill(null));
+    // Create a 2D grid with proper dimensions
+    const zGrid = [];
 
+    // Create a lookup map for quick access to z values
+    const dataMap = new Map();
     raw.forEach((point) => {
-      const xIndex = uniqueXValues.indexOf(point[x]);
-      const yIndex = uniqueYValues.indexOf(point[y]);
-      if (xIndex !== -1 && yIndex !== -1) {
-        zGrid[yIndex][xIndex] = point[z];
-      }
+      dataMap.set(`${point[x]}_${point[y]}`, point[z]);
     });
+
+    // Build the grid with interpolation for missing values
+    for (let i = 0; i < uniqueYValues.length; i++) {
+      const row = [];
+      const yVal = uniqueYValues[i];
+
+      for (let j = 0; j < uniqueXValues.length; j++) {
+        const xVal = uniqueXValues[j];
+        const key = `${xVal}_${yVal}`;
+
+        if (dataMap.has(key)) {
+          // Use exact value if available
+          row.push(dataMap.get(key));
+        } else {
+          // Find nearest data points for interpolation
+          let nearest = raw.reduce(
+            (closest, point) => {
+              const distance = Math.sqrt(
+                Math.pow(point[x] - xVal, 2) + Math.pow(point[y] - yVal, 2)
+              );
+              if (distance < closest.distance) {
+                return { distance, value: point[z] };
+              }
+              return closest;
+            },
+            { distance: Infinity, value: null }
+          );
+
+          row.push(nearest.value);
+        }
+      }
+      zGrid.push(row);
+    }
+
+    // Check if we have a valid grid (no nulls/undefined)
+    const hasInvalidValues = zGrid.some((row) =>
+      row.some((val) => val === null || val === undefined || isNaN(val))
+    );
+
+    if (hasInvalidValues) {
+      console.warn("Grid contains invalid values, attempting to correct...");
+      // Replace invalid values with average of surrounding values
+      for (let i = 0; i < zGrid.length; i++) {
+        for (let j = 0; j < zGrid[i].length; j++) {
+          if (
+            zGrid[i][j] === null ||
+            zGrid[i][j] === undefined ||
+            isNaN(zGrid[i][j])
+          ) {
+            // Calculate average of neighboring values
+            let sum = 0;
+            let count = 0;
+
+            // Check surrounding cells
+            for (let di = -1; di <= 1; di++) {
+              for (let dj = -1; dj <= 1; dj++) {
+                if (di === 0 && dj === 0) continue;
+
+                const ni = i + di;
+                const nj = j + dj;
+
+                if (
+                  ni >= 0 &&
+                  ni < zGrid.length &&
+                  nj >= 0 &&
+                  nj < zGrid[i].length
+                ) {
+                  if (
+                    zGrid[ni][nj] !== null &&
+                    zGrid[ni][nj] !== undefined &&
+                    !isNaN(zGrid[ni][nj])
+                  ) {
+                    sum += zGrid[ni][nj];
+                    count++;
+                  }
+                }
+              }
+            }
+
+            zGrid[i][j] = count > 0 ? sum / count : 0;
+          }
+        }
+      }
+    }
 
     return {
       data: [

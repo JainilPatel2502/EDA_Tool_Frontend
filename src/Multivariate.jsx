@@ -29,30 +29,11 @@ function Multivariate({ cols }) {
         label: "Radar Chart",
         description: "Compare multiple variables by category",
       },
-      {
-        id: "treemap",
-        label: "Treemap",
-        description: "Hierarchical data with nested rectangles",
-      },
-      {
-        id: "sunburst",
-        label: "Sunburst",
-        description: "Hierarchical data with radial layout",
-      },
-      {
-        id: "chord",
-        label: "Chord Diagram",
-        description: "Visualize flow between categories",
-      },
+
       {
         id: "sankey",
         label: "Sankey Diagram",
         description: "Visualize flow between sequential categories",
-      },
-      {
-        id: "upset",
-        label: "UpSet Plot",
-        description: "Analyze set intersections",
       },
       {
         id: "scatter3d",
@@ -157,8 +138,10 @@ function Multivariate({ cols }) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800 p-4 md:p-8 font-sans">
-      <div className="max-w-4xl mx-auto bg-white p-4 md:p-6 rounded-lg shadow-md space-y-6">
+    // <div className="min-h-screen bg-gray-100 text-gray-800 p-4 md:p-8 font-sans">
+    //   <div className="max-w-4xl mx-auto bg-white p-4 md:p-6 rounded-lg shadow-md space-y-6">
+    <div className="min-h-screen bg-gray-100 text-gray-800 p-0 md:p-0 font-sans">
+      <div className="max-w-screen mx-auto p-4 md:p-6 rounded-lg shadow-md space-y-6">
         <div className="flex justify-between items-center border-b pb-4">
           <h2 className="text-xl font-semibold">📊 Multivariate Analysis</h2>
 

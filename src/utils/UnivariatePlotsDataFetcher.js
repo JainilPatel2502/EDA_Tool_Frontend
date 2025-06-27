@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 const baseURL = "http://127.0.0.1:8000/univariate";
 
 // Simple cache for API responses
