@@ -1,4 +1,4 @@
-const api = "https://eda-tool.onrender.com//multivariate";
+const api = "https://eda-tool.onrender.com/multivariate";
 
 // Simple cache for API responses
 const responseCache = new Map();

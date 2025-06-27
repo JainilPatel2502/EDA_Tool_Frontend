@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-const API = "https://eda-tool.onrender.com//bivariate";
+const API = "https://eda-tool.onrender.com/bivariate";
 
 // Cache for API responses to reduce repeated calls
 const responseCache = new Map();
