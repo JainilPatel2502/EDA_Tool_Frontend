@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-const API = "http://127.0.0.1:8000/bivariate";
+const API = "https://eda-tool.onrender.com//bivariate";
 
 // Cache for API responses to reduce repeated calls
 const responseCache = new Map();

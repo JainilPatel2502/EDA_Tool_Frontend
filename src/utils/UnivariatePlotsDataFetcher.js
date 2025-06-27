@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-const baseURL = "http://127.0.0.1:8000/univariate";
+const baseURL = "https://eda-tool.onrender.com/univariate";
 
 // Simple cache for API responses
 const responseCache = new Map();

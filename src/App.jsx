@@ -25,7 +25,7 @@
 //     setIsLoading(true);
 //     setError(null);
 //     try {
-//       const pro = await fetch(`http://127.0.0.1:8000/get_projects`);
+//       const pro = await fetch(`https://eda-tool.onrender.com/get_projects`);
 //       if (!pro.ok) {
 //         throw new Error("Failed to fetch projects");
 //       }
@@ -44,7 +44,7 @@
 //     setError(null);
 //     try {
 //       const res = await fetch(
-//         `http://127.0.0.1:8000/load_project/?path=Projects/${projName}/data.csv`,
+//         `https://eda-tool.onrender.com/load_project/?path=Projects/${projName}/data.csv`,
 //         { method: "POST" }
 //       );
 //       if (!res.ok) {
@@ -89,7 +89,7 @@
 //       formData.append("name", newProjectName);
 //       formData.append("file", newProjectFile);
 
-//       const response = await fetch("http://127.0.0.1:8000/create_project/", {
+//       const response = await fetch("https://eda-tool.onrender.com/create_project/", {
 //         method: "POST",
 //         body: formData,
 //       });
@@ -624,7 +624,7 @@ function App() {
     setIsLoading(true);
     setError(null);
     try {
-      const pro = await fetch(`http://127.0.0.1:8000/get_projects`);
+      const pro = await fetch(`https://eda-tool.onrender.com/get_projects`);
       if (!pro.ok) {
         throw new Error("Failed to fetch projects");
       }
@@ -643,7 +643,7 @@ function App() {
     setError(null);
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/load_project/?path=Projects/${projName}/data.csv`,
+        `https://eda-tool.onrender.com/load_project/?path=Projects/${projName}/data.csv`,
         { method: "POST" }
       );
       if (!res.ok) {
@@ -688,10 +688,13 @@ function App() {
       formData.append("name", newProjectName);
       formData.append("file", newProjectFile);
 
-      const response = await fetch("http://127.0.0.1:8000/create_project/", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        "https://eda-tool.onrender.com/create_project/",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const data = await response.json();
 
@@ -743,7 +746,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/delete_project/?name=${encodeURIComponent(
+        `https://eda-tool.onrender.com/delete_project/?name=${encodeURIComponent(
           projectToDelete
         )}`,
         {
